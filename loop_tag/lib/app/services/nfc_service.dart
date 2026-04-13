@@ -168,7 +168,7 @@ class NfcService {
       final ndef = Ndef.from(tag);
       if (ndef != null) {
         final message = await ndef.read();
-        if (message != null && message.records.isNotEmpty) {
+        if (message.records.isNotEmpty) {
           records = message.records;
         }
       }
@@ -199,7 +199,7 @@ class NfcService {
           rec.type[0] == 0x54) {
         // Text record
         final payload = rec.payload;
-        if (payload.length > 0) {
+        if (payload.isNotEmpty) {
           final status = payload[0];
           final isUtf16 = (status & 0x80) != 0;
           final langLen = status & 0x3F;

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:loop_tag/app/routes/app_pages.dart';
 import 'package:loop_tag/app/utils/core/login_api.dart';
-import 'package:loop_tag/app/utils/core/product_api.dart';
 import 'package:loop_tag/app/utils/ui/product_card.dart';
 
 import '../controllers/home_controller.dart';
