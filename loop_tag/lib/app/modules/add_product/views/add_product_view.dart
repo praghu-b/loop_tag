@@ -234,7 +234,7 @@ class AddProductView extends GetView<AddProductController> {
         Obx(
           () => DropdownButtonFormField<String>(
             dropdownColor: Colors.white,
-            value: controller.selectedCategory.value,
+            initialValue: controller.selectedCategory.value,
             onChanged: controller.onCategoryChanged,
             items:
                 controller.categories.map<DropdownMenuItem<String>>((

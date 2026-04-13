@@ -44,7 +44,7 @@ class AddProductController extends GetxController {
         selectedImages.addAll(images.take(availableSlots));
         Get.snackbar(
           'Limit Exceeded',
-          'Only ${availableSlots} more images were added.',
+          'Only $availableSlots more images were added.',
         );
       } else {
         selectedImages.addAll(images);
