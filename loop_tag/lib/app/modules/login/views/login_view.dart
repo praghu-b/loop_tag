@@ -109,55 +109,11 @@ class LoginView extends GetView<LoginController> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-
-                  const Row(
-                    children: [
-                      Expanded(child: Divider()),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8.0),
-                        child: Text("or"),
-                      ),
-                      Expanded(child: Divider()),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _socialIcon(
-                        icon: Icons.apple,
-                        onTap: controller.signInWithApple,
-                      ),
-                      const SizedBox(width: 16),
-                      _socialIcon(
-                        icon: Icons.g_mobiledata,
-                        onTap: controller.signInWithGoogle,
-                      ),
-                      const SizedBox(width: 16),
-                      _socialIcon(
-                        icon: Icons.facebook,
-                        onTap: controller.signInWithFacebook,
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _socialIcon({required IconData icon, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: CircleAvatar(
-        radius: 24,
-        backgroundColor: Colors.white,
-        child: Icon(icon, size: 28, color: Colors.black),
       ),
     );
   }

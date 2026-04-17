@@ -31,16 +31,4 @@ class LoginController extends GetxController {
   void forgotPassword() {
     Get.snackbar("Forgot Password", "Redirecting to reset page...");
   }
-
-  void signInWithGoogle() {
-    Get.snackbar("Google", "Google login redirection");
-  }
-
-  void signInWithApple() {
-    Get.snackbar("Apple", "Apple login redirection");
-  }
-
-  void signInWithFacebook() {
-    Get.snackbar("Facebook", "Facebook login redirection");
-  }
 }
