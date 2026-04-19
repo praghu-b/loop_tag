@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:loop_tag/app/data/product_model.dart';
 import 'package:loop_tag/app/data/product_upload_model.dart';
 import 'package:loop_tag/app/routes/app_pages.dart';
+import 'package:loop_tag/app/utils/core/shipment_api.dart';
 import 'package:loop_tag/app/utils/core/product_api.dart';
 
 class AddProductController extends GetxController {
@@ -30,6 +31,7 @@ class AddProductController extends GetxController {
   // State to hold the product after it's successfully created.
   // The UI will react to changes in this variable.
   final Rx<Product?> createdProduct = Rx<Product?>(null);
+  final RxString createdShipmentId = ''.obs;
 
   // Method to handle image selection from the gallery
   Future<void> pickImages() async {
@@ -99,18 +101,45 @@ class AddProductController extends GetxController {
     // If successful, store the created product, which will trigger the UI update.
     if (result != null) {
       createdProduct.value = result;
+
+      if (result.id != null && result.id!.isNotEmpty) {
+        final shipmentId = await ShipmentApiService().createShipment(
+          productId: result.id!,
+          destination: descriptionController.text.trim(),
+        );
+
+        if (shipmentId != null && shipmentId.isNotEmpty) {
+          createdShipmentId.value = shipmentId;
+        } else {
+          Get.snackbar(
+            'Shipment Error',
+            'Product was created, but shipment setup failed.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+        }
+      }
     }
   }
 
   // --- NEW ---
   // Method to navigate to the NFC writer screen, passing the product ID as an argument.
   void goToNfcWriter() {
-    if (createdProduct.value != null && createdProduct.value!.id!.isNotEmpty) {
-      Get.toNamed(Routes.NFC_WRITER, arguments: createdProduct.value!.id);
+    if (createdProduct.value != null &&
+        createdProduct.value!.id != null &&
+        createdProduct.value!.id!.isNotEmpty &&
+        createdShipmentId.value.isNotEmpty) {
+      Get.toNamed(
+        Routes.NFC_WRITER,
+        arguments: {
+          'productId': createdProduct.value!.id,
+          'shipmentId': createdShipmentId.value,
+        },
+      );
     } else {
       Get.snackbar(
         'Error',
-        'Could not get a valid Product ID to write.',
+        'Could not prepare shipment and product data for NFC write.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );

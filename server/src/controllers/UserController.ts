@@ -3,19 +3,42 @@ import asyncHandler from "express-async-handler";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/UserModel";
+import { AuthRequest, UserRole } from "../middleware/authMiddleware";
+import { logAuditEvent } from "../utils/auditLogger";
 
-interface AuthRequest extends Request {
-    user?: { userId: string; email: string };
-}
+const isValidRole = (role: unknown): role is UserRole => {
+    return role === "manufacturer" || role === "seller_pickup";
+};
+
+const createTokenPair = (userId: string, email: string, role: UserRole, admin = false) => {
+    const secret = admin
+        ? process.env.JWT_SECRET_ADMIN
+        : process.env.JWT_SECRET;
+
+    if (!secret) {
+        throw new Error("JWT secret is not configured.");
+    }
+
+    const payload = { userId, email, role };
+    const accessToken = jwt.sign(payload, secret, { expiresIn: "1d" });
+    const refreshToken = jwt.sign(payload, secret, { expiresIn: "7d" });
+
+    return { accessToken, refreshToken };
+};
 
 //@desc Register a user
 //@route POST /users/register
 //@access public
 const registerUser = asyncHandler(async (req: Request, res: Response) => {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
 
     if ( !email || !password) {
         res.status(401).json({ message: "All fields are mandatory!" });
+        return;
+    }
+
+    if (role && !isValidRole(role)) {
+        res.status(400).json({ message: "Invalid role provided." });
         return;
     }
 
@@ -31,18 +54,31 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
     const user = await User.create({
         email: email,
         password: hashedPassword,
+        role: role ?? "seller_pickup",
     });
 
     if (user) {
-        const accessToken = jwt.sign(
-            { userId: user._id, email: user.email }, process.env.JWT_SECRET as string, { expiresIn: '1d' }
+        const tokens = createTokenPair(
+            user._id.toString(),
+            user.email,
+            user.role,
         );
 
-        const refreshToken = jwt.sign(
-            { userId: user._id, email: user.email }, process.env.JWT_SECRET as string, { expiresIn: '7d' }
-        );
+        res.status(201).json({
+            ...tokens,
+            role: user.role,
+            isAdmin: false,
+        });
 
-        res.status(201).json({ accessToken, refreshToken });
+        await logAuditEvent({
+            eventType: "LOGIN",
+            resourceType: "User",
+            resourceId: user._id.toString(),
+            metadata: {
+                eventSource: "register",
+                role: user.role,
+            },
+        });
     } else {
         res.status(501).json({ message: "Some error occurred while creating user, try again!" });
     }
@@ -67,28 +103,53 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
     }
 
     if (user && (email === process.env.ADMIN_EMAIL as string && password === process.env.ADMIN_PASSWORD as string)) {
-        const accessToken = jwt.sign(
-            { userId: user._id, email: user.email }, process.env.JWT_SECRET_ADMIN as string, { expiresIn: '1d' }
+        const tokens = createTokenPair(
+            user._id.toString(),
+            user.email,
+            "admin",
+            true,
         );
 
-        const refreshToken = jwt.sign(
-            { userId: user._id, email: user.email }, process.env.JWT_SECRET_ADMIN as string, { expiresIn: '7d' }
-        );
+        res.status(200).json({
+            ...tokens,
+            role: "admin",
+            isAdmin: true,
+        });
 
-        res.status(200).json({ accessToken, refreshToken, isAdmin: true });
+        await logAuditEvent({
+            eventType: "LOGIN",
+            resourceType: "User",
+            resourceId: user._id.toString(),
+            metadata: {
+                eventSource: "login",
+                role: "admin",
+            },
+        });
     }
 
     // Compare password with hashed password
     else if (user && (await bcrypt.compare(password, user.password))) {
-        const accessToken = jwt.sign(
-            { userId: user._id, email: user.email }, process.env.JWT_SECRET as string, { expiresIn: '1d' }
+        const tokens = createTokenPair(
+            user._id.toString(),
+            user.email,
+            user.role,
         );
 
-        const refreshToken = jwt.sign(
-            { userId: user._id, email: user.email }, process.env.JWT_SECRET as string, { expiresIn: '7d' }
-        );
+        res.status(200).json({
+            ...tokens,
+            role: user.role,
+            isAdmin: false,
+        });
 
-        res.status(200).json({ accessToken, refreshToken });
+        await logAuditEvent({
+            eventType: "LOGIN",
+            resourceType: "User",
+            resourceId: user._id.toString(),
+            metadata: {
+                eventSource: "login",
+                role: user.role,
+            },
+        });
     } else {
         res.status(401).json({ message: 'Incorrect credentials' });
     }
@@ -110,7 +171,14 @@ const currentUser = asyncHandler(async (req: AuthRequest, res: Response): Promis
         return;
     }
 
-    res.status(200).json({ message: 'User success', user });
+    res.status(200).json({
+        message: 'User success',
+        user: {
+            _id: user._id,
+            email: user.email,
+            role: user.role,
+        },
+    });
 });
 
 export { registerUser, loginUser, currentUser };

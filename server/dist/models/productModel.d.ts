@@ -2,7 +2,7 @@ import { Document, Model } from "mongoose";
 export interface ProductDocument extends Document {
     productName: string;
     price: number;
-    discountedPrice?: number;
+    tax?: number;
     description: string;
     category: string;
     imageUrls: string[];

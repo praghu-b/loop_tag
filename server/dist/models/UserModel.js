@@ -45,6 +45,12 @@ const userSchema = new mongoose_1.Schema({
         type: String,
         required: true, // Ensures password is mandatory
     },
+    role: {
+        type: String,
+        enum: ['admin', 'manufacturer', 'seller_pickup'],
+        default: 'seller_pickup',
+        required: true,
+    },
 }, {
     timestamps: true,
 });

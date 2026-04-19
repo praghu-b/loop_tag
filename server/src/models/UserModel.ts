@@ -1,9 +1,11 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { UserRole } from '../middleware/authMiddleware';
 
 // Define the User interface
 interface IUser extends Document {
     email: string;
     password: string;
+    role: UserRole;
     createdAt?: Date;
     updatedAt?: Date;
 }
@@ -19,6 +21,12 @@ const userSchema = new Schema<IUser>(
         password: {
             type: String,
             required: true, // Ensures password is mandatory
+        },
+        role: {
+            type: String,
+            enum: ['admin', 'manufacturer', 'seller_pickup'],
+            default: 'seller_pickup',
+            required: true,
         },
     },
     {

@@ -1,11 +1,19 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:loop_tag/app/services/nfc_service.dart';
+import 'package:loop_tag/app/utils/core/nfc_payload_api.dart';
+import 'package:loop_tag/app/utils/core/shipment_api.dart';
 import 'package:nfc_manager/nfc_manager.dart';
 
 class NfcWriterController extends GetxController {
   final NfcService _nfcService = NfcService();
-  final String productIdToWrite = Get.arguments; // Receive product ID from navigation
+  final Map<String, dynamic> _args =
+      (Get.arguments as Map<String, dynamic>?) ?? <String, dynamic>{};
+
+  String get productIdToWrite => (_args['productId'] as String?) ?? '';
+  String get shipmentId => (_args['shipmentId'] as String?) ?? '';
 
   final RxBool isNfcAvailable = true.obs;
   final RxString statusMessage = 'Hold your phone near an NFC tag to write.'.obs;
@@ -23,6 +31,11 @@ class NfcWriterController extends GetxController {
   }
 
   Future<void> _startNfcWritingSession() async {
+    if (productIdToWrite.isEmpty || shipmentId.isEmpty) {
+      statusMessage.value = 'Missing product or shipment details.';
+      return;
+    }
+
     isNfcAvailable.value = await _nfcService.isAvailable();
     if (!isNfcAvailable.value) {
       statusMessage.value = 'NFC is not available on this device.';
@@ -30,15 +43,35 @@ class NfcWriterController extends GetxController {
     }
 
     try {
-      // Create a text record with the product ID
-      final record = NdefRecord.createText(productIdToWrite);
+      final signedPayload = await NfcPayloadApiService().issuePayload(
+        shipmentId: shipmentId,
+        productId: productIdToWrite,
+      );
+
+      if (signedPayload == null) {
+        statusMessage.value = 'Failed to issue secure NFC payload.';
+        return;
+      }
+
+      final envelope = jsonEncode({
+        'serializedPayload': signedPayload.serializedPayload,
+        'signature': signedPayload.signature,
+      });
+
+      final record = NdefRecord.createText(envelope);
       final success = await _nfcService.writeNdef([record]);
 
       if (success) {
-        statusMessage.value = 'Product ID written successfully!';
+        await ShipmentApiService().transitionShipment(
+          shipmentId: shipmentId,
+          nextState: 'TAG_WRITTEN',
+          note: 'Manufacturer wrote signed payload to NFC tag.',
+        );
+
+        statusMessage.value = 'Signed shipment payload written successfully!';
         Get.snackbar(
           'Success',
-          'NFC tag updated.',
+          'Secure NFC tag updated.',
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );

@@ -7,9 +7,14 @@ class LoginController extends GetxController {
   final passwordController = TextEditingController();
   final isPasswordHidden = true.obs;
   final isLoading = false.obs;
+  final selectedRole = 'seller_pickup'.obs;
 
   void togglePasswordVisibility() {
     isPasswordHidden.value = !isPasswordHidden.value;
+  }
+
+  void setRole(String role) {
+    selectedRole.value = role;
   }
 
   void login() async {
@@ -25,6 +30,20 @@ class LoginController extends GetxController {
 
     await AuthApiService().login(email, password);
 
+    isLoading.value = false;
+  }
+
+  void register() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      Get.snackbar("Error", "Please enter both email and password");
+      return;
+    }
+
+    isLoading.value = true;
+    await AuthApiService().register(email, password, selectedRole.value);
     isLoading.value = false;
   }
 

@@ -10,6 +10,21 @@ class AuthApiService {
   final _storage = const FlutterSecureStorage();
   final String _usersBaseUrl = '$baseURI/Users';
 
+  String _resolveRole(Map<String, dynamic> data) {
+    final role = (data['role'] as String?)?.trim();
+    if (role != null && role.isNotEmpty) {
+      return role;
+    }
+
+    return (data['isAdmin'] == true) ? 'admin' : 'seller_pickup';
+  }
+
+  String _routeForRole(String role) {
+    return (role == 'admin' || role == 'manufacturer')
+        ? Routes.HOME
+        : Routes.SCANNER;
+  }
+
   /// Handles user login.
   /// On success, it stores tokens and navigates to the appropriate home screen.
   Future<void> login(String email, String password) async {
@@ -23,8 +38,6 @@ class AuthApiService {
       return;
     }
 
-    print('$_usersBaseUrl/login');
-
     try {
       final response = await http.post(
         Uri.parse('$_usersBaseUrl/login'),
@@ -35,9 +48,8 @@ class AuthApiService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         await _storeTokens(data);
-
-        final bool isAdmin = data['isAdmin'] ?? false;
-        Get.offAllNamed(isAdmin ? Routes.HOME : Routes.SCANNER);
+        final role = _resolveRole(data);
+        Get.offAllNamed(_routeForRole(role));
       } else {
         final error = json.decode(response.body)['message'];
         Get.snackbar(
@@ -48,7 +60,6 @@ class AuthApiService {
         );
       }
     } catch (e) {
-      print(e);
       Get.snackbar(
         "Error",
         "An unexpected error occurred: $e",
@@ -60,7 +71,11 @@ class AuthApiService {
 
   /// Handles user registration.
   /// On success, it logs the user in automatically.
-  Future<void> register(String email, String password) async {
+  Future<void> register(
+    String email,
+    String password,
+    String role,
+  ) async {
     if (!await isConnected()) {
       Get.snackbar(
         "Connection Error",
@@ -75,13 +90,17 @@ class AuthApiService {
       final response = await http.post(
         Uri.parse('$_usersBaseUrl/register'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'email': email, 'password': password}),
+        body: json.encode({
+          'email': email,
+          'password': password,
+          'role': role,
+        }),
       );
 
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
         await _storeTokens(data);
-        Get.offAllNamed(Routes.HOME); // New users are never admins
+        Get.offAllNamed(_routeForRole(_resolveRole(data)));
       } else {
         final error = json.decode(response.body)['message'];
         Get.snackbar(
@@ -110,16 +129,14 @@ class AuthApiService {
     }
 
     final accessToken = await _storage.read(key: 'accessToken');
-    final isAdmin = (await _storage.read(key: 'isAdmin')) == 'true';
+    final storedRole = await _storage.read(key: 'role');
 
     if (accessToken == null) {
       Get.offAllNamed(Routes.LOGIN);
       return;
     }
 
-    // Determine the correct endpoint based on admin status
-    final validationUrl =
-        isAdmin ? '$_usersBaseUrl/current/admin' : '$_usersBaseUrl/current';
+    final validationUrl = '$_usersBaseUrl/current';
 
     try {
       final response = await http.get(
@@ -128,8 +145,17 @@ class AuthApiService {
       );
 
       if (response.statusCode == 200) {
-        // Token is valid, go to the correct home screen
-        Get.offAllNamed(isAdmin ? Routes.HOME : Routes.SCANNER);
+        final body = json.decode(response.body) as Map<String, dynamic>;
+        final user = body['user'] as Map<String, dynamic>?;
+        final role = (user?['role'] as String?) ?? storedRole ?? 'seller_pickup';
+
+        await _storage.write(key: 'role', value: role);
+        await _storage.write(
+          key: 'isAdmin',
+          value: ((role == 'admin') ? true : false).toString(),
+        );
+
+        Get.offAllNamed(_routeForRole(role));
       } else {
         // Token is invalid or expired
         await logout();
@@ -142,12 +168,14 @@ class AuthApiService {
 
   /// Helper to store tokens and admin status securely.
   Future<void> _storeTokens(Map<String, dynamic> data) async {
+    final role = _resolveRole(data);
     await _storage.write(key: 'accessToken', value: data['accessToken']);
     await _storage.write(key: 'refreshToken', value: data['refreshToken']);
     await _storage.write(
       key: 'isAdmin',
-      value: (data['isAdmin'] ?? false).toString(),
+      value: ((role == 'admin') ? true : false).toString(),
     );
+    await _storage.write(key: 'role', value: role);
   }
 
   /// Logs the user out by clearing all stored credentials.

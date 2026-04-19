@@ -20,6 +20,12 @@ app.use('/api/Users', UserRoutes);
 import productRoutes from './routes/productRoutes';
 app.use('/api/products', productRoutes);
 
+import shipmentRoutes from './routes/shipmentRoutes';
+app.use('/api/shipments', shipmentRoutes);
+
+import nfcPayloadRoutes from './routes/nfcPayloadRoutes';
+app.use('/api/nfc-payloads', nfcPayloadRoutes);
+
 
 
 // Routes (Add your routes here)

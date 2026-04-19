@@ -1,9 +1,13 @@
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:loop_tag/app/routes/app_pages.dart';
 import 'package:loop_tag/app/services/nfc_service.dart';
+import 'package:loop_tag/app/utils/core/nfc_payload_api.dart';
 import 'package:loop_tag/app/utils/core/product_api.dart';
+import 'package:loop_tag/app/utils/core/shipment_api.dart';
 
 class ScannerController extends GetxController {
   final _nfcService = NfcService();
@@ -67,11 +71,48 @@ class ScannerController extends GetxController {
 
     // Attempt to parse the first text record from the tag
     final firstRecord = tag.ndefRecords.first;
-    final productId = NfcService.parseTextRecordPayload(firstRecord);
+    final rawText = NfcService.parseTextRecordPayload(firstRecord);
 
-    if (productId == null || productId.isEmpty) {
+    if (rawText == null || rawText.isEmpty) {
       Get.snackbar('Scan Error', 'Could not read a valid product ID from the tag.');
       return;
+    }
+
+    String productId = rawText;
+
+    // New signed NFC payload flow with a legacy fallback for old tags.
+    try {
+      final envelope = jsonDecode(rawText) as Map<String, dynamic>;
+      final serializedPayload = envelope['serializedPayload'] as String?;
+      final signature = envelope['signature'] as String?;
+
+      if (serializedPayload != null && signature != null) {
+        final verification = await NfcPayloadApiService().verifyPayload(
+          serializedPayload: serializedPayload,
+          signature: signature,
+        );
+
+        if (!verification.valid ||
+            verification.productId == null ||
+            verification.productId!.isEmpty) {
+          Get.snackbar('Scan Error', 'Secure payload verification failed.');
+          return;
+        }
+
+        productId = verification.productId!;
+
+        if (verification.shipmentId != null &&
+            verification.shipmentId!.isNotEmpty &&
+            verification.shipmentState == 'TAG_WRITTEN') {
+          await ShipmentApiService().transitionShipment(
+            shipmentId: verification.shipmentId!,
+            nextState: 'PICKED_UP',
+            note: 'Seller/pickup team verified NFC tag.',
+          );
+        }
+      }
+    } catch (_) {
+      // Keep compatibility with old tags where plain productId text is stored.
     }
 
     // Validate if the scanned data looks like a MongoDB ObjectId

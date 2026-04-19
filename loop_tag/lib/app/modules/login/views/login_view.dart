@@ -42,6 +42,26 @@ class LoginView extends GetView<LoginController> {
                     "Sign in to continue",
                     style: TextStyle(color: Colors.grey),
                   ),
+                  const SizedBox(height: 20),
+
+                  Obx(
+                    () => SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment<String>(
+                          value: 'seller_pickup',
+                          label: Text('Seller/Pickup'),
+                        ),
+                        ButtonSegment<String>(
+                          value: 'manufacturer',
+                          label: Text('Manufacturer'),
+                        ),
+                      ],
+                      selected: {controller.selectedRole.value},
+                      onSelectionChanged: (selection) {
+                        controller.setRole(selection.first);
+                      },
+                    ),
+                  ),
                   const SizedBox(height: 32),
 
                   CustomTextField(
@@ -78,35 +98,68 @@ class LoginView extends GetView<LoginController> {
                   const SizedBox(height: 32),
 
                   Obx(
-                    () => SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          shadowColor: Colors.transparent,
-                          backgroundColor: Colors.blueAccent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(1222),
+                    () => Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                shadowColor: Colors.transparent,
+                                backgroundColor: Colors.blueAccent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(1222),
+                                ),
+                              ),
+                              onPressed:
+                                  controller.isLoading.value
+                                      ? null
+                                      : controller.login,
+                              child:
+                                  controller.isLoading.value
+                                      ? const CircularProgressIndicator(
+                                        color: Colors.white,
+                                      )
+                                      : const Text(
+                                        "Sign In",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                            ),
                           ),
                         ),
-                        onPressed:
-                            controller.isLoading.value
-                                ? null
-                                : controller.login,
-                        child:
-                            controller.isLoading.value
-                                ? const CircularProgressIndicator(
-                                  color: Colors.white,
-                                )
-                                : const Text(
-                                  "Sign In",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(
+                                  color: Colors.blueAccent,
                                 ),
-                      ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(1222),
+                                ),
+                              ),
+                              onPressed:
+                                  controller.isLoading.value
+                                      ? null
+                                      : controller.register,
+                              child: const Text(
+                                "Register",
+                                style: TextStyle(
+                                  color: Colors.blueAccent,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
